@@ -1,20 +1,18 @@
 exports.handler = async (event) => {  
   const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL;  
   
-  // --- BƯỚC 1: IN RA TOÀN BỘ REQUEST ĐỂ DEBUG ---  
-  console.log("--- START OF REQUEST LOG ---");  
-  console.log("METHOD:", event.httpMethod);  
-  console.log("HEADERS:", JSON.stringify(event.headers, null, 2));  
-  console.log("BODY:", event.body);  
-  console.log("--- END OF REQUEST LOG ---");  
-  
+  console.log("--- RAW BODY RECEIVED ---");  
+  console.log(event.body);  
+    
   try {  
-    const body = JSON.parse(event.body);  
-    const challenge = body?.event?.sealtalk_challenge;  
+    // Luôn parse body để đảm bảo nó là object  
+    const body = JSON.parse(event.body || "{}");  
+      
+    // Kiểm tra challenge một cách an toàn nhất  
+    const challenge = body && body.event && body.event.sealtalk_challenge;  
   
-    // --- BƯỚC 2: XỬ LÝ SEATALK VERIFICATION ---  
     if (challenge) {  
-      console.log("Found challenge, responding:", challenge);  
+      console.log("SUCCESS: Challenge found! Responding with:", challenge);  
       return {  
         statusCode: 200,  
         headers: { "Content-Type": "text/plain" },  
@@ -22,8 +20,8 @@ exports.handler = async (event) => {
       };  
     }  
   
-    // --- BƯỚC 3: FORWARD CÁC EVENT KHÁC ĐẾN MAKE ---  
-    console.log("No challenge found, forwarding to Make...");  
+    // Nếu không phải verification, forward về Make  
+    console.log("INFO: Not a verification request. Forwarding to Make...");  
     if (MAKE_WEBHOOK_URL) {  
       await fetch(MAKE_WEBHOOK_URL, {  
         method: "POST",  
@@ -34,14 +32,14 @@ exports.handler = async (event) => {
   
     return {  
       statusCode: 200,  
-      body: "OK",  
+      body: "OK - Forwarded",  
     };  
   
   } catch (error) {  
-    console.error("Error processing request:", error);  
+    console.error("CRITICAL ERROR:", error.message);  
     return {  
-      statusCode: 400,  
-      body: "Bad Request or Error processing JSON.",  
+      statusCode: 500,  
+      body: "Internal Server Error",  
     };  
   }  
 };
