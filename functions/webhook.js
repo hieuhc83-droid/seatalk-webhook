@@ -6,21 +6,16 @@ exports.handler = async (event) => {
   
   try {  
     const signature = event.headers['signature'];  
-  
-    // --- CHỈNH SỬA: LẤY TIMESTAMP TỪ BODY, KHÔNG PHẢI TỪ HEADER ---  
     const body = JSON.parse(event.body);  
-    const timestamp = body.timestamp; // SeaTalk gửi timestamp trong body  
+    const timestamp = body.timestamp;  
   
     if (!SIGNING_SECRET || !signature || !timestamp) {  
-      console.error("Missing required data from body or signing secret.");  
-      console.log("Body:", body);  
-      console.log("Signature:", signature);  
-      console.log("Timestamp from body:", timestamp);  
+      console.error("Missing required data.");  
       return { statusCode: 400, body: "Configuration Error" };  
     }  
   
-    // Công thức tạo chữ ký: timestamp + \n + body  
-    const stringToSign = timestamp + "\n" + event.body;  
+    // --- CHỈNH SỬA: KHÔNG CÓ DẤU XUỐNG DÒNG ---  
+    const stringToSign = timestamp + body; // Không có "\n"  
     const expectedSignature = crypto  
       .createHmac('sha256', SIGNING_SECRET)  
       .update(stringToSign)  
@@ -28,8 +23,8 @@ exports.handler = async (event) => {
   
     if (signature !== expectedSignature) {  
       console.error("Signature Mismatch!");  
-      console.log("Received Signature:", signature);  
-      console.log("Expected Signature:", expectedSignature);  
+      console.log("Received:", signature);  
+      console.log("Expected:", expectedSignature);  
       return { statusCode: 401, body: "Invalid Signature" };  
     }  
   
