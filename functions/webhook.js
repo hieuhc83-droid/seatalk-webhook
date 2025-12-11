@@ -4,46 +4,37 @@ exports.handler = async (event) => {
   const SIGNING_SECRET = process.env.SEATALK_SIGNING_SECRET;  
   const MAKE_WEBHOOK_URL = process.env.MAKE_WEBHOOK_URL;  
   
-  // --- CHỈNH SỬA: KIỂM TRA NHIỀU TÊN HEADER ---  
-  const signature = event.headers['signature'];  
-  const timestampHeaderNames = ['x-lark-request-timestamp', 'timestamp', 'x-sea-request-timestamp'];  
-  let timestamp = null;  
-  
-  // Duyệt qua danh sách tên header  
-  for (const name of timestampHeaderNames) {  
-    if (event.headers[name]) {  
-      timestamp = event.headers[name];  
-      console.log("Found timestamp in header:", name);  
-      break;  
-    }  
-  }  
-  
-  if (!SIGNING_SECRET || !signature || !timestamp) {  
-    console.error("Missing required headers or signing secret.");  
-    console.log("Signature:", signature);  
-    console.log("Timestamp:", timestamp);  
-    console.log("Headers available:", Object.keys(event.headers));  
-    return { statusCode: 400, body: "Configuration Error" };  
-  }  
-  
-  // Công thức tạo chữ ký: timestamp + \n + body  
-  const stringToSign = timestamp + "\n" + event.body;  
-  const expectedSignature = crypto  
-    .createHmac('sha256', SIGNING_SECRET)  
-    .update(stringToSign)  
-    .digest('hex');  
-  
-  if (signature !== expectedSignature) {  
-    console.error("Signature Mismatch!");  
-    console.log("Received Signature:", signature);  
-    console.log("Expected Signature:", expectedSignature);  
-    return { statusCode: 401, body: "Invalid Signature" };  
-  }  
-  
-  console.log("✅ Signature Verified! Proceeding...");  
-  
   try {  
+    const signature = event.headers['signature'];  
+  
+    // --- CHỈNH SỬA: LẤY TIMESTAMP TỪ BODY, KHÔNG PHẢI TỪ HEADER ---  
     const body = JSON.parse(event.body);  
+    const timestamp = body.timestamp; // SeaTalk gửi timestamp trong body  
+  
+    if (!SIGNING_SECRET || !signature || !timestamp) {  
+      console.error("Missing required data from body or signing secret.");  
+      console.log("Body:", body);  
+      console.log("Signature:", signature);  
+      console.log("Timestamp from body:", timestamp);  
+      return { statusCode: 400, body: "Configuration Error" };  
+    }  
+  
+    // Công thức tạo chữ ký: timestamp + \n + body  
+    const stringToSign = timestamp + "\n" + event.body;  
+    const expectedSignature = crypto  
+      .createHmac('sha256', SIGNING_SECRET)  
+      .update(stringToSign)  
+      .digest('hex');  
+  
+    if (signature !== expectedSignature) {  
+      console.error("Signature Mismatch!");  
+      console.log("Received Signature:", signature);  
+      console.log("Expected Signature:", expectedSignature);  
+      return { statusCode: 401, body: "Invalid Signature" };  
+    }  
+  
+    console.log("✅ Signature Verified! Proceeding...");  
+  
     const challenge = body?.event?.sealtalk_challenge;  
   
     if (challenge) {  
